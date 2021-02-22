@@ -65,8 +65,6 @@ func buildTableResult(surveyResults []formInput) (tableResult string) {
 	tableResult += "<th>Phone No</th>"
 
 	for index, oneSurveyResult := range surveyResults {
-		fmt.Println(index, oneSurveyResult)
-
 		tableResult += "<tr>"
 		tableResult += "<td>" + oneSurveyResult.FirstName + "</td>"
 		tableResult += "<td>" + oneSurveyResult.LastName + "</td>"
@@ -101,7 +99,6 @@ func buildServeyPage(pageTemplate string) (pageResult string) {
 func handleFunc(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
-		log.Println("Server MethodPost")
 		err := req.ParseForm()
 		if err != nil {
 			resp.WriteHeader(http.StatusBadRequest)
@@ -130,10 +127,7 @@ func handleFunc(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusOK)
 		fmt.Fprint(resp, "form saved")
 	case http.MethodGet:
-		log.Println("Server MethodGet")
 		resp.WriteHeader(http.StatusOK)
-
-		log.Println(req.URL.Path)
 		if req.URL.Path == "/form.html" {
 			http.ServeFile(resp, req, "./form.html")
 			return
