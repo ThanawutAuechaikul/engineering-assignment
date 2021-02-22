@@ -10,11 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	env "github.com/joho/godotenv"
-	)
+)
 
 const envFile = ".env"
 const dataFile = "data/forms.json"
@@ -45,7 +46,8 @@ func (f formInput) save() error {
 	if err != nil {
 		return err
 	}
-	forms = []formInput{f}
+
+	forms = append(forms, f)
 	toSave, err := json.Marshal(forms)
 	if err != nil {
 		return err
@@ -54,16 +56,65 @@ func (f formInput) save() error {
 	return err
 }
 
+func buildTableResult(surveyResults []formInput) (tableResult string) {
+	tableResult = "<table id='surveyResult'>"
+
+	tableResult += "<th>First Name</th>"
+	tableResult += "<th>Last Name</th>"
+	tableResult += "<th>Email</th>"
+	tableResult += "<th>Phone No</th>"
+
+	for index, oneSurveyResult := range surveyResults {
+		fmt.Println(index, oneSurveyResult)
+
+		tableResult += "<tr>"
+		tableResult += "<td>" + oneSurveyResult.FirstName + "</td>"
+		tableResult += "<td>" + oneSurveyResult.LastName + "</td>"
+		tableResult += "<td>" + oneSurveyResult.Email + "</td>"
+		tableResult += "<td>" + oneSurveyResult.PhoneNumber + "</td>"
+
+		tableResult += "</tr>"
+	}
+
+	tableResult += "</table>"
+
+	return tableResult
+}
+
+func buildServeyPage(pageTemplate string) (pageResult string) {
+	resultForms := []formInput{}
+
+	file, err := ioutil.ReadFile(dataFile)
+	if err == nil {
+		var forms []formInput
+		err = json.Unmarshal(file, &forms)
+		if err == nil {
+			resultForms = forms
+		}
+	}
+
+	tableHTML := buildTableResult(resultForms)
+	finalResult := strings.Replace(pageTemplate, "<!--TABLE_RESULT-->", tableHTML, 1)
+	return finalResult
+}
+
 func handleFunc(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
+		log.Println("Server MethodPost")
 		err := req.ParseForm()
 		if err != nil {
 			resp.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(resp, err.Error())
 			return
 		}
-		f := formInput{}
+
+		f := formInput{
+			FirstName:   req.FormValue("first_name"),
+			LastName:    req.FormValue("last_name"),
+			Email:       req.FormValue("email"),
+			PhoneNumber: req.FormValue("phone_number"),
+		}
 		err = f.validate()
 		if err != nil {
 			resp.WriteHeader(http.StatusBadRequest)
@@ -79,8 +130,26 @@ func handleFunc(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusOK)
 		fmt.Fprint(resp, "form saved")
 	case http.MethodGet:
+		log.Println("Server MethodGet")
 		resp.WriteHeader(http.StatusOK)
+
+		log.Println(req.URL.Path)
+		if req.URL.Path == "/form.html" {
+			http.ServeFile(resp, req, "./form.html")
+			return
+		} else if req.URL.Path == "/survey-result.html" {
+			content, err := ioutil.ReadFile("./survey-result.html")
+			if err != nil {
+				fmt.Fprint(resp, "not found")
+			} else {
+				fmt.Fprint(resp, buildServeyPage(string(content)))
+			}
+			return
+		}
+
 		fmt.Fprint(resp, "under construction")
+		return
+
 	default:
 		log.Println("error no 404")
 		resp.WriteHeader(http.StatusNotFound)
@@ -107,6 +176,7 @@ func run() (s *http.Server) {
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+		Handler:        mux,
 	}
 
 	go func() {
