@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	env "github.com/joho/godotenv"
 )
 
 func TestHandleFunc_POST_Success(t *testing.T) {
@@ -47,8 +49,9 @@ func TestHandleFunc_GET_NotFound(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	var loadEnv = env.Load
 	oLoadEnv := loadEnv
-	loadEnv = func(filename string) (err error) {
+	loadEnv = func(filename ...string) (err error) {
 		os.Setenv("PORT", "8080")
 		return
 	}
